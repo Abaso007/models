@@ -14,6 +14,7 @@
 
 """Builder class for preparing tf.train.Example."""
 
+
 # https://www.python.org/dev/peps/pep-0563/#enabling-the-future-behavior-in-python-3-7
 from __future__ import annotations
 
@@ -24,7 +25,7 @@ import tensorflow as tf
 
 BytesValueType = Union[bytes, Sequence[bytes], str, Sequence[str]]
 
-_to_array = lambda v: [v] if not isinstance(v, (list, np.ndarray)) else v
+_to_array = lambda v: v if isinstance(v, (list, np.ndarray)) else [v]
 _to_bytes = lambda v: v.encode() if isinstance(v, str) else v
 _to_bytes_array = lambda v: list(map(_to_bytes, _to_array(v)))
 

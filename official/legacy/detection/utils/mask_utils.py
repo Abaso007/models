@@ -167,5 +167,4 @@ def paste_instance_masks_v2(masks, detected_boxes, image_height, image_width):
 
     segms.append(img_mask)
 
-  segms = np.array(segms)
-  return segms
+  return np.array(segms)

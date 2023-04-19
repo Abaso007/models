@@ -28,7 +28,7 @@ class SubtokenizerTest(tf.test.TestCase):
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     with tf.io.gfile.GFile(temp_file.name, "w") as w:
       for subtoken in vocab_list:
-        w.write("'%s'" % subtoken)
+        w.write(f"'{subtoken}'")
         w.write("\n")
     return tokenizer.Subtokenizer(temp_file.name, reserved_tokens=[])
 
@@ -154,9 +154,9 @@ class StringHelperTest(tf.test.TestCase):
 
     self.assertEqual(len(subtoken_buckets[0]), 0)
     self.assertEqual(set("b"), subtoken_buckets[1])
-    self.assertEqual(set(["ab", "ac"]), subtoken_buckets[2])
+    self.assertEqual({"ab", "ac"}, subtoken_buckets[2])
     self.assertEqual(len(subtoken_buckets[3]), 0)
-    self.assertEqual(set(["abbc"]), subtoken_buckets[4])
+    self.assertEqual({"abbc"}, subtoken_buckets[4])
 
   def test_gen_new_subtoken_list(self):
     subtoken_counts = collections.defaultdict(int, {

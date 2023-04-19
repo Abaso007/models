@@ -194,7 +194,7 @@ class OlnCOCOevalXclassWrapper(OlnCOCOevalWrapper):
     gtind = np.argsort([g['_ignore'] for g in gt], kind='mergesort')
     gt = [gt[i] for i in gtind]
     dtind = np.argsort([-d['score'] for d in dt], kind='mergesort')
-    dt = [dt[i] for i in dtind[0:max_det]]
+    dt = [dt[i] for i in dtind[:max_det]]
     iscrowd = [int(o['iscrowd']) for o in gt]
     # load computed ious
     # ious = self.ious[img_id, cat_id][:, gtind] if len(
@@ -354,7 +354,7 @@ class COCOEvaluator(object):
         'source_id', 'height', 'width', 'classes', 'boxes'
     ]
     if self._include_mask:
-      mask_metric_names = ['mask_' + x for x in self._metric_names]
+      mask_metric_names = [f'mask_{x}' for x in self._metric_names]
       self._metric_names.extend(mask_metric_names)
       self._required_prediction_fields.extend(['detection_masks'])
       self._required_groundtruth_fields.extend(['masks'])
@@ -412,10 +412,10 @@ class COCOEvaluator(object):
     # Cleans up the internal variables in order for a fresh eval next time.
     self.reset()
 
-    metrics_dict = {}
-    for i, name in enumerate(self._metric_names):
-      metrics_dict[name] = metrics[i].astype(np.float32)
-    return metrics_dict
+    return {
+        name: metrics[i].astype(np.float32)
+        for i, name in enumerate(self._metric_names)
+    }
 
   def _process_predictions(self, predictions):
     image_scale = np.tile(predictions['image_info'][:, 2:3, :], (1, 1, 2))
@@ -468,8 +468,7 @@ class COCOEvaluator(object):
     """
     for k in self._required_prediction_fields:
       if k not in predictions:
-        raise ValueError(
-            'Missing the required key `{}` in predictions!'.format(k))
+        raise ValueError(f'Missing the required key `{k}` in predictions!')
     if self._need_rescale_bboxes:
       self._process_predictions(predictions)
     for k, v in six.iteritems(predictions):
@@ -482,8 +481,7 @@ class COCOEvaluator(object):
       assert groundtruths
       for k in self._required_groundtruth_fields:
         if k not in groundtruths:
-          raise ValueError(
-              'Missing the required key `{}` in groundtruths!'.format(k))
+          raise ValueError(f'Missing the required key `{k}` in groundtruths!')
       for k, v in six.iteritems(groundtruths):
         if k not in self._groundtruths:
           self._groundtruths[k] = [v]
@@ -543,7 +541,7 @@ class OlnXclassEvaluator(COCOEvaluator):
           'ARmax10s_novel', 'ARmax10m_novel', 'ARmax10l_novel',
       ])
     if self._include_mask:
-      mask_metric_names = ['mask_' + x for x in self._metric_names]
+      mask_metric_names = [f'mask_{x}' for x in self._metric_names]
       self._metric_names.extend(mask_metric_names)
       self._required_prediction_fields.extend(['detection_masks'])
       self._required_groundtruth_fields.extend(['masks'])
@@ -579,7 +577,7 @@ class OlnXclassEvaluator(COCOEvaluator):
         coco_gt, coco_dt, iou_type='bbox')
     coco_eval.params.maxDets = [10, 20, 50, 100, 200]
     coco_eval.params.imgIds = image_ids
-    coco_eval.params.useCats = 0 if not self._use_category else 1
+    coco_eval.params.useCats = 1 if self._use_category else 0
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()
@@ -590,7 +588,7 @@ class OlnXclassEvaluator(COCOEvaluator):
           coco_gt, coco_dt, iou_type='segm')
       mcoco_eval.params.maxDets = [10, 20, 50, 100, 200]
       mcoco_eval.params.imgIds = image_ids
-      mcoco_eval.params.useCats = 0 if not self._use_category else 1
+      mcoco_eval.params.useCats = 1 if self._use_category else 0
       mcoco_eval.evaluate()
       mcoco_eval.accumulate()
       mcoco_eval.summarize()
@@ -613,7 +611,7 @@ class OlnXclassEvaluator(COCOEvaluator):
           coco_gt_seen, coco_dt, iou_type='bbox')
       coco_eval_seen.params.maxDets = [10, 20, 50, 100, 200]
       coco_eval_seen.params.imgIds = image_ids
-      coco_eval_seen.params.useCats = 0 if not self._use_category else 1
+      coco_eval_seen.params.useCats = 1 if self._use_category else 0
       coco_eval_seen.evaluate()
       coco_eval_seen.accumulate()
       coco_eval_seen.summarize()
@@ -623,7 +621,7 @@ class OlnXclassEvaluator(COCOEvaluator):
             coco_gt_seen, coco_dt, iou_type='segm')
         mcoco_eval_seen.params.maxDets = [10, 20, 50, 100, 200]
         mcoco_eval_seen.params.imgIds = image_ids
-        mcoco_eval_seen.params.useCats = 0 if not self._use_category else 1
+        mcoco_eval_seen.params.useCats = 1 if self._use_category else 0
         mcoco_eval_seen.evaluate()
         mcoco_eval_seen.accumulate()
         mcoco_eval_seen.summarize()
@@ -640,7 +638,7 @@ class OlnXclassEvaluator(COCOEvaluator):
           coco_gt_novel, coco_dt, iou_type='bbox')
       coco_eval_novel.params.maxDets = [10, 20, 50, 100, 200]
       coco_eval_novel.params.imgIds = image_ids
-      coco_eval_novel.params.useCats = 0 if not self._use_category else 1
+      coco_eval_novel.params.useCats = 1 if self._use_category else 0
       coco_eval_novel.evaluate()
       coco_eval_novel.accumulate()
       coco_eval_novel.summarize()
@@ -650,7 +648,7 @@ class OlnXclassEvaluator(COCOEvaluator):
             coco_gt_novel, coco_dt, iou_type='segm')
         mcoco_eval_novel.params.maxDets = [10, 20, 50, 100, 200]
         mcoco_eval_novel.params.imgIds = image_ids
-        mcoco_eval_novel.params.useCats = 0 if not self._use_category else 1
+        mcoco_eval_novel.params.useCats = 1 if self._use_category else 0
         mcoco_eval_novel.evaluate()
         mcoco_eval_novel.accumulate()
         mcoco_eval_novel.summarize()
@@ -668,10 +666,10 @@ class OlnXclassEvaluator(COCOEvaluator):
     # Cleans up the internal variables in order for a fresh eval next time.
     self.reset()
 
-    metrics_dict = {}
-    for i, name in enumerate(self._metric_names):
-      metrics_dict[name] = metrics[i].astype(np.float32)
-    return metrics_dict
+    return {
+        name: metrics[i].astype(np.float32)
+        for i, name in enumerate(self._metric_names)
+    }
 
 
 class OlnXdataEvaluator(OlnXclassEvaluator):
@@ -732,7 +730,7 @@ class OlnXdataEvaluator(OlnXclassEvaluator):
     coco_eval = cocoeval.OlnCOCOevalWrapper(coco_gt, coco_dt, iou_type='bbox')
     coco_eval.params.maxDets = [10, 20, 50, 100, 200]
     coco_eval.params.imgIds = image_ids
-    coco_eval.params.useCats = 0 if not self._use_category else 1
+    coco_eval.params.useCats = 1 if self._use_category else 0
     coco_eval.evaluate()
     coco_eval.accumulate()
     coco_eval.summarize()
@@ -743,7 +741,7 @@ class OlnXdataEvaluator(OlnXclassEvaluator):
                                                iou_type='segm')
       mcoco_eval.params.maxDets = [10, 20, 50, 100, 200]
       mcoco_eval.params.imgIds = image_ids
-      mcoco_eval.params.useCats = 0 if not self._use_category else 1
+      mcoco_eval.params.useCats = 1 if self._use_category else 0
       mcoco_eval.evaluate()
       mcoco_eval.accumulate()
       mcoco_eval.summarize()
@@ -757,10 +755,10 @@ class OlnXdataEvaluator(OlnXclassEvaluator):
     # Cleans up the internal variables in order for a fresh eval next time.
     self.reset()
 
-    metrics_dict = {}
-    for i, name in enumerate(self._metric_names):
-      metrics_dict[name] = metrics[i].astype(np.float32)
-    return metrics_dict
+    return {
+        name: metrics[i].astype(np.float32)
+        for i, name in enumerate(self._metric_names)
+    }
 
 
 class ShapeMaskCOCOEvaluator(COCOEvaluator):
