@@ -61,15 +61,15 @@ def match_files(input_path: Union[Sequence[str], str]) -> List[str]:
       if not input_pattern:
         continue
       if '*' in input_pattern or '?' in input_pattern:
-        tmp_matched_files = tf.io.gfile.glob(input_pattern)
-        if not tmp_matched_files:
-          raise ValueError('%s does not match any files.' % input_pattern)
-        matched_files.extend(tmp_matched_files)
+        if tmp_matched_files := tf.io.gfile.glob(input_pattern):
+          matched_files.extend(tmp_matched_files)
+        else:
+          raise ValueError(f'{input_pattern} does not match any files.')
       else:
         matched_files.append(input_pattern)
 
   if not matched_files:
-    raise ValueError('%s does not match any files.' % input_path)
+    raise ValueError(f'{input_path} does not match any files.')
 
   return matched_files
 
@@ -123,10 +123,9 @@ def _shard_files_then_read(matched_files: List[str],
     # its own shard the files do not overlap.
     if sharding and seed is None:
       seed = _get_random_integer()
-    dataset = dataset.shuffle(
-        len(matched_files),
-        seed=seed,
-        reshuffle_each_iteration=True if not cache else False)
+    dataset = dataset.shuffle(len(matched_files),
+                              seed=seed,
+                              reshuffle_each_iteration=not cache)
 
   # Do not enable sharding if tf.data service is enabled, as sharding will be
   # handled inside tf.data service.
@@ -194,19 +193,19 @@ def _read_tfds(tfds_name: Text,
         shuffle_files=is_training, as_supervised=tfds_as_supervised,
         decoders=decoders if decoders else None)
     if tfds_data_dir:
-      load_kwargs.update({'data_dir': tfds_data_dir})
+      load_kwargs['data_dir'] = tfds_data_dir
 
     if input_context and num_shards < input_context.num_input_pipelines:
       # The number of files in the dataset split is smaller than the number of
       # input pipelines. We read the entire dataset first and then shard in the
       # host memory.
       read_config = dataclasses.replace(read_config, input_context=None)
-      load_kwargs.update({'read_config': read_config})
+      load_kwargs['read_config'] = read_config
       dataset = tfds.load(**load_kwargs)
       dataset = dataset.shard(input_context.num_input_pipelines,
                               input_context.input_pipeline_id)
     else:
-      load_kwargs.update({'read_config': read_config})
+      load_kwargs['read_config'] = read_config
       dataset = tfds.load(**load_kwargs)
   return dataset
 
@@ -264,9 +263,9 @@ class InputReader:
         will be executed after batching.
     """
     if params.input_path and params.tfds_name:
-      raise ValueError('At most one of `input_path` and `tfds_name` can be '
-                       'specified, but got %s and %s.' %
-                       (params.input_path, params.tfds_name))
+      raise ValueError(
+          f'At most one of `input_path` and `tfds_name` can be specified, but got {params.input_path} and {params.tfds_name}.'
+      )
 
     if (isinstance(params.input_path, cfg.base_config.Config) or
         isinstance(params.tfds_name, cfg.base_config.Config)
@@ -274,18 +273,16 @@ class InputReader:
       raise ValueError(
           'A combine_fn is required if `input_path` or `tfds_name` is a dict.')
 
-    self._tfds_name = params.tfds_name
     self._tfds_data_dir = params.tfds_data_dir
     self._matched_files = None
-    if not params.input_path:
-      # Read dataset from TFDS.
-      if not params.tfds_split:
-        raise ValueError(
-            '`tfds_name` is %s, but `tfds_split` is not specified.' %
-            params.tfds_name)
-    else:
+    self._tfds_name = params.tfds_name
+    if params.input_path:
       self._matched_files = self.get_files(params.input_path)
 
+    elif not params.tfds_split:
+      raise ValueError(
+          f'`tfds_name` is {params.tfds_name}, but `tfds_split` is not specified.'
+      )
     self._global_batch_size = params.global_batch_size
     self._is_training = params.is_training
     self._drop_remainder = params.drop_remainder
@@ -358,15 +355,10 @@ class InputReader:
     """Gets matched files. Can be overridden by subclasses."""
     if not input_path:
       return None
-    # we want to combine / mix datasets
-    if isinstance(input_path, cfg.base_config.Config):
-      matched_files = {}
-      for k, v in input_path.as_dict().items():
-        matched_files[k] = match_files(v)
-    # single dataset
-    else:
-      matched_files = match_files(input_path)
-    return matched_files
+    return ({k: match_files(v)
+             for k, v in input_path.as_dict().items()} if isinstance(
+                 input_path, cfg.base_config.Config) else
+            match_files(input_path))
 
   def _read_data_source(
       self,
@@ -554,13 +546,13 @@ class InputReader:
             'job_name': self._tf_data_service_job_name,
         }
         if self._enable_shared_tf_data_service_between_parallel_trainers:
-          tfds_kwargs.update({
+          tfds_kwargs |= {
               'processing_mode':
-                  tf.data.experimental.service.ShardingPolicy.OFF,
+              tf.data.experimental.service.ShardingPolicy.OFF,
               'cross_trainer_cache':
-                  tf.data.experimental.service.CrossTrainerCache(
-                      trainer_id=self._trainer_id)
-          })
+              tf.data.experimental.service.CrossTrainerCache(
+                  trainer_id=self._trainer_id),
+          }
         dataset = dataset.apply(
             tf.data.experimental.service.distribute(**tfds_kwargs))
     return dataset

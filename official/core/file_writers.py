@@ -38,9 +38,9 @@ def write_small_dataset(examples: Sequence[Union[tf.train.Example,
   """
   file_type = file_type.lower()
 
-  if file_type == 'tfrecord' or file_type == 'tfrecords':
+  if file_type in {'tfrecord', 'tfrecords'}:
     _write_tfrecord(examples, output_path)
-  elif file_type == 'tfrecord_compressed' or file_type == 'tfrecords_gzip':
+  elif file_type in {'tfrecord_compressed', 'tfrecords_gzip'}:
     _write_tfrecord(examples, output_path,
                     tf.io.TFRecordOptions(compression_type='GZIP'))
   elif file_type == 'riegeli':

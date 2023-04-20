@@ -22,13 +22,13 @@ from official.core import savedmodel_checkpoint_manager
 
 
 def _models_exist(checkpoint_path: str, models: Iterable[str]) -> bool:
-  for model_name in models:
-    if not tf.io.gfile.isdir(
-        os.path.join(
-            savedmodel_checkpoint_manager.make_saved_modules_directory_name(
-                checkpoint_path), model_name)):
-      return False
-  return True
+  return all(
+      tf.io.gfile.isdir(
+          os.path.join(
+              savedmodel_checkpoint_manager.make_saved_modules_directory_name(
+                  checkpoint_path),
+              model_name,
+          )) for model_name in models)
 
 
 class _ModelForTest(tf.keras.Model):
@@ -62,12 +62,12 @@ class CheckpointManagerTest(tf.test.TestCase):
         'model_2': _ModelForTest(14),
     }
     checkpoint = tf.train.Checkpoint()
-    manager = savedmodel_checkpoint_manager.SavedModelCheckpointManager(
+    return savedmodel_checkpoint_manager.SavedModelCheckpointManager(
         checkpoint=checkpoint,
         directory=self.get_temp_dir(),
         max_to_keep=max_to_keep,
-        modules_to_export=models)
-    return manager
+        modules_to_export=models,
+    )
 
   def test_max_to_keep(self):
     manager = self._create_manager()

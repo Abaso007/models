@@ -81,11 +81,10 @@ class RetinanetModel(base_model.Model):
         cls_outputs[level] = tf.cast(cls_outputs[level], tf.float32)
         box_outputs[level] = tf.cast(box_outputs[level], tf.float32)
 
-    model_outputs = {
+    return {
         'cls_outputs': cls_outputs,
         'box_outputs': box_outputs,
     }
-    return model_outputs
 
   def build_loss_fn(self):
     if self._keras_model is None:
@@ -131,13 +130,15 @@ class RetinanetModel(base_model.Model):
     required_output_fields = ['cls_outputs', 'box_outputs']
     for field in required_output_fields:
       if field not in outputs:
-        raise ValueError('"%s" is missing in outputs, requried %s found %s' %
-                         (field, required_output_fields, outputs.keys()))
+        raise ValueError(
+            f'"{field}" is missing in outputs, requried {required_output_fields} found {outputs.keys()}'
+        )
     required_label_fields = ['image_info', 'groundtruths']
     for field in required_label_fields:
       if field not in labels:
-        raise ValueError('"%s" is missing in outputs, requried %s found %s' %
-                         (field, required_label_fields, labels.keys()))
+        raise ValueError(
+            f'"{field}" is missing in outputs, requried {required_label_fields} found {labels.keys()}'
+        )
     boxes, scores, classes, valid_detections = self._generate_detections_fn(
         outputs['box_outputs'], outputs['cls_outputs'], labels['anchor_boxes'],
         labels['image_info'][:, 1:2, :])
